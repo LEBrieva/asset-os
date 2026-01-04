@@ -1,0 +1,205 @@
+// AssetOS 2026 - Prisma Schema
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ========================================
+// ACCOUNTS
+// ========================================
+
+model Account {
+  id           String   @id @default(uuid()) @db.Uuid
+  provider     Provider
+  label        String
+  baseCurrency String   @default("USD") @map("base_currency")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  // Relations
+  balances  AccountBalance[]
+  positions Position[]
+  transfersFrom Transfer[] @relation("TransfersFrom")
+  transfersTo   Transfer[] @relation("TransfersTo")
+
+  @@map("accounts")
+}
+
+// ========================================
+// SNAPSHOTS
+// ========================================
+
+model Snapshot {
+  id           String         @id @default(uuid()) @db.Uuid
+  snapshotDate DateTime       @unique @map("snapshot_date") @db.Date
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  source       SnapshotSource @default(DAILY_CRON)
+  status       SnapshotStatus @default(CREATED)
+  notes        String?
+
+  // Relations
+  providerSyncRuns ProviderSyncRun[]
+  balances         AccountBalance[]
+  positions        Position[]
+  rawEvents        RawEvent[]
+
+  @@map("snapshots")
+}
+
+// ========================================
+// PROVIDER SYNC RUNS
+// ========================================
+
+model ProviderSyncRun {
+  id           String          @id @default(uuid()) @db.Uuid
+  snapshotId   String          @map("snapshot_id") @db.Uuid
+  provider     Provider
+  startedAt    DateTime        @map("started_at") @db.Timestamptz(3)
+  finishedAt   DateTime?       @map("finished_at") @db.Timestamptz(3)
+  status       SyncRunStatus   @default(OK)
+  errorMessage String?         @map("error_message")
+
+  // Relations
+  snapshot Snapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  @@unique([snapshotId, provider])
+  @@map("provider_sync_runs")
+}
+
+// ========================================
+// ACCOUNT BALANCES
+// ========================================
+
+model AccountBalance {
+  snapshotId String  @map("snapshot_id") @db.Uuid
+  accountId  String  @map("account_id") @db.Uuid
+  asset      String
+  free       Decimal @db.Decimal(20, 8)
+  locked     Decimal @default(0) @db.Decimal(20, 8)
+  usdValue   Decimal? @map("usd_value") @db.Decimal(20, 2)
+
+  // Relations
+  snapshot Snapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  account  Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@id([snapshotId, accountId, asset])
+  @@map("account_balances")
+}
+
+// ========================================
+// POSITIONS (for SimpleFX futures/forex)
+// ========================================
+
+model Position {
+  snapshotId       String   @map("snapshot_id") @db.Uuid
+  accountId        String   @map("account_id") @db.Uuid
+  symbol           String
+  side             PositionSide
+  size             Decimal  @db.Decimal(20, 8)
+  entryPrice       Decimal? @map("entry_price") @db.Decimal(20, 8)
+  markPrice        Decimal? @map("mark_price") @db.Decimal(20, 8)
+  pnlUnrealizedUsd Decimal? @map("pnl_unrealized_usd") @db.Decimal(20, 2)
+
+  // Relations
+  snapshot Snapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  account  Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@id([snapshotId, accountId, symbol, side])
+  @@map("positions")
+}
+
+// ========================================
+// TRANSFERS (deposits, withdrawals, inter-exchange)
+// ========================================
+
+model Transfer {
+  id            String    @id @default(uuid()) @db.Uuid
+  ts            DateTime  @db.Timestamptz(3)
+  fromAccountId String?   @map("from_account_id") @db.Uuid
+  toAccountId   String?   @map("to_account_id") @db.Uuid
+  asset         String
+  amount        Decimal   @db.Decimal(20, 8)
+  fee           Decimal?  @db.Decimal(20, 8)
+  txid          String?   @unique
+  note          String?
+
+  // Relations
+  fromAccount Account? @relation("TransfersFrom", fields: [fromAccountId], references: [id], onDelete: SetNull)
+  toAccount   Account? @relation("TransfersTo", fields: [toAccountId], references: [id], onDelete: SetNull)
+
+  @@map("transfers")
+}
+
+// ========================================
+// RAW EVENTS (audit trail)
+// ========================================
+
+model RawEvent {
+  id          String   @id @default(uuid()) @db.Uuid
+  provider    Provider
+  snapshotId  String?  @map("snapshot_id") @db.Uuid
+  ts          DateTime @default(now()) @db.Timestamptz(3)
+  eventType   String   @map("event_type")
+  payloadJson Json     @map("payload_json")
+  payloadHash String   @map("payload_hash")
+
+  // Relations
+  snapshot Snapshot? @relation(fields: [snapshotId], references: [id], onDelete: SetNull)
+
+  @@index([provider, ts])
+  @@index([payloadHash])
+  @@map("raw_events")
+}
+
+// ========================================
+// PRICES (daily USD prices)
+// ========================================
+
+model PriceDaily {
+  priceDate     DateTime @map("price_date") @db.Date
+  assetOrSymbol String   @map("asset_or_symbol")
+  priceUsd      Decimal  @map("price_usd") @db.Decimal(20, 8)
+  source        String
+
+  @@id([priceDate, assetOrSymbol])
+  @@map("prices_daily")
+}
+
+// ========================================
+// ENUMS
+// ========================================
+
+enum Provider {
+  BITGET
+  SIMPLEFX
+  NEXO
+}
+
+enum SnapshotSource {
+  DAILY_CRON
+  MANUAL
+  CSV_IMPORT
+}
+
+enum SnapshotStatus {
+  CREATED
+  RUNNING
+  PARTIAL
+  COMPLETE
+  FAILED
+}
+
+enum SyncRunStatus {
+  OK
+  ERROR
+  SKIPPED
+}
+
+enum PositionSide {
+  LONG
+  SHORT
+}
