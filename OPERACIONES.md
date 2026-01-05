@@ -41,8 +41,8 @@ curl http://localhost:3000/admin/sync/status/cm5abcd1234567890
 
 **Variables de Entorno Requeridas:**
 - `BITGET_API_KEY` - Tu API key de Bitget
-- `BITGET_SECRET_KEY` - Tu secret key de Bitget
-- `BITGET_PASSPHRASE` - Tu passphrase de API de Bitget
+- `BITGET_API_SECRET` - Tu API secret de Bitget
+- `BITGET_API_PASSPHRASE` - Tu passphrase de API de Bitget
 
 ---
 
@@ -211,8 +211,8 @@ DATABASE_URL="postgresql://usuario:contraseña@localhost:5432/asset_os?schema=pu
 
 # API de Bitget
 BITGET_API_KEY="tu_api_key_de_bitget"
-BITGET_SECRET_KEY="tu_secret_key_de_bitget"
-BITGET_PASSPHRASE="tu_passphrase_de_bitget"
+BITGET_API_SECRET="tu_api_secret_de_bitget"
+BITGET_API_PASSPHRASE="tu_passphrase_de_bitget"
 
 # API de SimpleFX
 SIMPLEFX_API_KEY="tu_identificador_de_api_key_de_simplefx"
@@ -394,8 +394,8 @@ services:
     environment:
       - DATABASE_URL=postgresql://asset_os_user:password@db:5432/asset_os
       - BITGET_API_KEY=${BITGET_API_KEY}
-      - BITGET_SECRET_KEY=${BITGET_SECRET_KEY}
-      - BITGET_PASSPHRASE=${BITGET_PASSPHRASE}
+      - BITGET_API_SECRET=${BITGET_API_SECRET}
+      - BITGET_API_PASSPHRASE=${BITGET_API_PASSPHRASE}
       - SIMPLEFX_API_KEY=${SIMPLEFX_API_KEY}
       - SIMPLEFX_API_SECRET=${SIMPLEFX_API_SECRET}
     depends_on:

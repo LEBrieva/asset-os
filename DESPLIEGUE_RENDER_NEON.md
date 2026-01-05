@@ -120,10 +120,10 @@ git push -u origin main
 ### 2.2 Crear proyecto
 
 1. Click en "Create a project"
-2. Nombre del proyecto: `asset-os` (o el que prefieras)
-3. Región: Elige la más cercana (ej: `US East (Ohio)` o `EU (Frankfurt)`)
-4. PostgreSQL version: `15` (recomendado)
-5. Click en "Create project"
+   1. Nombre del proyecto: `asset-os` (o el que prefieras)
+2. Región: Elige la más cercana (ej: `US East (Ohio)` o `EU (Frankfurt)`)
+3. PostgreSQL version: `15` (recomendado)
+4. Click en "Create project"
 
 ### 2.3 Obtener Connection String
 
@@ -197,8 +197,8 @@ En la sección "Environment Variables", agrega:
 | `PORT` | `3000` |
 | `DATABASE_URL` | `postgresql://usuario:password@ep-xxx-xxx.region.neon.tech/neondb?schema=public&sslmode=require` |
 | `BITGET_API_KEY` | tu_api_key_de_bitget |
-| `BITGET_SECRET_KEY` | tu_secret_key_de_bitget |
-| `BITGET_PASSPHRASE` | tu_passphrase_de_bitget |
+| `BITGET_API_SECRET` | tu_api_secret_de_bitget |
+| `BITGET_API_PASSPHRASE` | tu_passphrase_de_bitget |
 | `SIMPLEFX_API_KEY` | tu_api_key_de_simplefx |
 | `SIMPLEFX_API_SECRET` | tu_secret_de_simplefx |
 

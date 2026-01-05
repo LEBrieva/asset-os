@@ -211,8 +211,8 @@ DATABASE_URL="postgresql://user:password@localhost:5432/asset_os?schema=public"
 
 # Bitget API
 BITGET_API_KEY="your_bitget_api_key"
-BITGET_SECRET_KEY="your_bitget_secret_key"
-BITGET_PASSPHRASE="your_bitget_passphrase"
+BITGET_API_SECRET="your_bitget_api_secret"
+BITGET_API_PASSPHRASE="your_bitget_passphrase"
 
 # SimpleFX API
 SIMPLEFX_API_KEY="your_simplefx_api_key_identifier"
@@ -394,8 +394,8 @@ services:
     environment:
       - DATABASE_URL=postgresql://asset_os_user:password@db:5432/asset_os
       - BITGET_API_KEY=${BITGET_API_KEY}
-      - BITGET_SECRET_KEY=${BITGET_SECRET_KEY}
-      - BITGET_PASSPHRASE=${BITGET_PASSPHRASE}
+      - BITGET_API_SECRET=${BITGET_API_SECRET}
+      - BITGET_API_PASSPHRASE=${BITGET_API_PASSPHRASE}
       - SIMPLEFX_API_KEY=${SIMPLEFX_API_KEY}
       - SIMPLEFX_API_SECRET=${SIMPLEFX_API_SECRET}
     depends_on:
