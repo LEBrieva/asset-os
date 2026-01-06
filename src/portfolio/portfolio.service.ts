@@ -224,7 +224,11 @@ export class PortfolioService {
 
     let totalAmount = 0;
     let totalUsd = 0;
-    const holdings = [];
+    const holdings: Array<{
+      provider: string;
+      amount: number;
+      usdValue: number;
+    }> = [];
 
     for (const balance of updatedSnapshot?.balances || []) {
       const amount =
@@ -282,7 +286,12 @@ export class PortfolioService {
     const fromAlloc = await this.getAllocation(from, 'asset');
     const toAlloc = await this.getAllocation(to, 'asset');
 
-    const assetChanges = [];
+    const assetChanges: Array<{
+      asset: string;
+      changeUsd: number;
+      fromUsd: number;
+      toUsd: number;
+    }> = [];
     const allAssets = new Set([
       ...fromAlloc.items.map(i => i.key),
       ...toAlloc.items.map(i => i.key),

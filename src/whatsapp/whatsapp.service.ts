@@ -16,9 +16,9 @@ export class WhatsAppService {
     private readonly aiOrchestrator: AiOrchestratorService,
   ) {
     // Meta WhatsApp Business API credentials
-    this.whatsappToken = this.configService.get<string>('WHATSAPP_TOKEN');
-    this.phoneNumberId = this.configService.get<string>('WHATSAPP_PHONE_NUMBER_ID');
-    this.verifyToken = this.configService.get<string>('WHATSAPP_VERIFY_TOKEN');
+    this.whatsappToken = this.configService.get<string>('WHATSAPP_TOKEN') || '';
+    this.phoneNumberId = this.configService.get<string>('WHATSAPP_PHONE_NUMBER_ID') || '';
+    this.verifyToken = this.configService.get<string>('WHATSAPP_VERIFY_TOKEN') || '';
 
     this.logger.log('WhatsApp Service initialized with Meta Business API');
   }
