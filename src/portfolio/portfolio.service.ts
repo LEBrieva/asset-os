@@ -182,6 +182,81 @@ export class PortfolioService {
   }
 
   /**
+   * Get holdings for a specific asset
+   */
+  async getAssetHoldings(asset: string, date?: Date) {
+    const queryDate = date || new Date();
+    queryDate.setHours(0, 0, 0, 0);
+
+    const snapshot = await this.prisma.snapshot.findUnique({
+      where: { snapshotDate: queryDate },
+      include: {
+        balances: {
+          where: { asset: asset.toUpperCase() },
+          include: { account: true },
+        },
+      },
+    });
+
+    if (!snapshot || snapshot.balances.length === 0) {
+      return {
+        asset: asset.toUpperCase(),
+        found: false,
+        totalAmount: 0,
+        totalUsd: 0,
+        pricePerToken: 0,
+        holdings: [],
+      };
+    }
+
+    await this.calculateUsdValues(snapshot.id);
+
+    // Re-fetch with updated USD values
+    const updatedSnapshot = await this.prisma.snapshot.findUnique({
+      where: { id: snapshot.id },
+      include: {
+        balances: {
+          where: { asset: asset.toUpperCase() },
+          include: { account: true },
+        },
+      },
+    });
+
+    let totalAmount = 0;
+    let totalUsd = 0;
+    const holdings = [];
+
+    for (const balance of updatedSnapshot?.balances || []) {
+      const amount =
+        parseFloat(balance.free.toString()) +
+        parseFloat(balance.locked.toString());
+      const usdValue = balance.usdValue
+        ? parseFloat(balance.usdValue.toString())
+        : 0;
+
+      totalAmount += amount;
+      totalUsd += usdValue;
+
+      holdings.push({
+        provider: balance.account.provider,
+        amount: parseFloat(amount.toFixed(8)),
+        usdValue: parseFloat(usdValue.toFixed(2)),
+      });
+    }
+
+    const pricePerToken = totalAmount > 0 ? totalUsd / totalAmount : 0;
+
+    return {
+      asset: asset.toUpperCase(),
+      found: true,
+      totalAmount: parseFloat(totalAmount.toFixed(8)),
+      totalUsd: parseFloat(totalUsd.toFixed(2)),
+      pricePerToken: parseFloat(pricePerToken.toFixed(2)),
+      holdings,
+    };
+  }
+
+  /**
    * Calculate and update USD values for all balances in a snapshot
    */
   private async calculateUsdValues(snapshotId: string) {

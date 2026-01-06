@@ -73,6 +73,27 @@ export class AiOrchestratorService {
             },
           },
         },
+        {
+          type: 'function',
+          function: {
+            name: 'get_asset_holdings',
+            description: 'Get detailed holdings for a specific cryptocurrency or asset (e.g., BTC, ETH, XRP, USDT). Returns total amount, USD value, current price, and breakdown by provider.',
+            parameters: {
+              type: 'object',
+              properties: {
+                asset: {
+                  type: 'string',
+                  description: 'Asset symbol (e.g., BTC, ETH, XRP, USDT)',
+                },
+                date: {
+                  type: 'string',
+                  description: 'Date in YYYY-MM-DD format. Omit for today.',
+                },
+              },
+              required: ['asset'],
+            },
+          },
+        },
       ];
 
       const response = await this.openai.chat.completions.create({
@@ -107,6 +128,14 @@ export class AiOrchestratorService {
               functionResult = await this.portfolioService.getAllocation(
                 allocDate,
                 functionArgs.groupBy,
+              );
+              break;
+
+            case 'get_asset_holdings':
+              const assetDate = functionArgs.date ? new Date(functionArgs.date) : undefined;
+              functionResult = await this.portfolioService.getAssetHoldings(
+                functionArgs.asset,
+                assetDate,
               );
               break;
 
