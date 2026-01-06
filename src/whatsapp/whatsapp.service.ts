@@ -1,155 +1,110 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import makeWASocket, {
-  DisconnectReason,
-  useMultiFileAuthState,
-  WASocket,
-} from '@whiskeysockets/baileys';
-import { Boom } from '@hapi/boom';
-import * as qrcode from 'qrcode-terminal';
-import * as path from 'path';
-import * as fs from 'fs';
+import { CommandsService } from './commands.service';
+import { AiOrchestratorService } from './ai-orchestrator.service';
 
 @Injectable()
-export class WhatsAppService implements OnModuleInit {
+export class WhatsAppService {
   private readonly logger = new Logger(WhatsAppService.name);
-  private sock: WASocket;
-  private authorizedNumbers: string[];
-  private readonly authPath: string;
+  private readonly whatsappToken: string;
+  private readonly phoneNumberId: string;
+  private readonly verifyToken: string;
 
-  constructor(private readonly configService: ConfigService) {
-    this.authorizedNumbers =
-      this.configService
-        .get<string>('WHATSAPP_AUTHORIZED_NUMBERS')
-        ?.split(',') || [];
-    this.authPath = path.join(process.cwd(), 'whatsapp-session');
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly commandsService: CommandsService,
+    private readonly aiOrchestrator: AiOrchestratorService,
+  ) {
+    // Meta WhatsApp Business API credentials
+    this.whatsappToken = this.configService.get<string>('WHATSAPP_TOKEN');
+    this.phoneNumberId = this.configService.get<string>('WHATSAPP_PHONE_NUMBER_ID');
+    this.verifyToken = this.configService.get<string>('WHATSAPP_VERIFY_TOKEN');
+
+    this.logger.log('WhatsApp Service initialized with Meta Business API');
   }
 
-  async onModuleInit() {
-    // Connect in background to not block app startup
-    this.connect().catch((err) => {
-      this.logger.error('Failed to initialize WhatsApp:', err);
-    });
-  }
+  /**
+   * Handle incoming message from webhook
+   */
+  async handleIncomingMessage(message: any, value: any) {
+    const from = message.from;
+    const messageBody = message.text?.body;
+    const messageId = message.id;
 
-  async connect() {
+    this.logger.log(`Message from ${from}: ${messageBody}`);
+
+    // Only process text messages
+    if (!messageBody) {
+      this.logger.log('Ignoring non-text message');
+      return;
+    }
+
     try {
-      // Ensure auth directory exists
-      if (!fs.existsSync(this.authPath)) {
-        fs.mkdirSync(this.authPath, { recursive: true });
+      let response: string;
+
+      // Check if it's a command (starts with /)
+      if (messageBody.trim().startsWith('/')) {
+        const parts = messageBody.trim().split(' ');
+        const command = parts[0];
+        const args = parts.slice(1);
+
+        response = await this.commandsService.processCommand(command, args);
+      } else {
+        // Natural language query - use AI
+        response = await this.aiOrchestrator.processQuery(messageBody);
       }
 
-      const { state, saveCreds } = await useMultiFileAuthState(this.authPath);
-
-      this.sock = makeWASocket({
-        auth: state,
-        printQRInTerminal: false,
-      });
-
-      // QR code event
-      this.sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect, qr } = update;
-
-        if (qr) {
-          this.logger.log('Scan this QR code with WhatsApp:');
-          qrcode.generate(qr, { small: true });
-        }
-
-        if (connection === 'close') {
-          const shouldReconnect =
-            (lastDisconnect?.error as Boom)?.output?.statusCode !==
-            DisconnectReason.loggedOut;
-
-          this.logger.log('Connection closed. Reconnecting:', shouldReconnect);
-
-          if (shouldReconnect) {
-            await this.connect();
-          }
-        } else if (connection === 'open') {
-          this.logger.log('WhatsApp connected successfully!');
-        }
-      });
-
-      // Save credentials on update
-      this.sock.ev.on('creds.update', saveCreds);
+      // Send response via WhatsApp
+      await this.sendMessage(from, response);
     } catch (error) {
-      this.logger.error('Failed to connect to WhatsApp:', error);
+      this.logger.error(`Error handling message: ${error.message}`);
+      await this.sendMessage(
+        from,
+        'Lo siento, hubo un error procesando tu mensaje. Por favor intenta de nuevo.',
+      );
     }
   }
 
   /**
-   * Send a text message to a WhatsApp number
+   * Send a WhatsApp message using Meta Graph API
    */
-  async sendMessage(to: string, message: string) {
-    try {
-      // Format number: remove + and @s.whatsapp.net if present
-      const jid = to.replace('+', '').replace('@s.whatsapp.net', '') + '@s.whatsapp.net';
+  async sendMessage(to: string, text: string): Promise<void> {
+    const url = `https://graph.facebook.com/v18.0/${this.phoneNumberId}/messages`;
 
-      await this.sock.sendMessage(jid, { text: message });
-      this.logger.log(`Message sent to ${to}`);
+    const payload = {
+      messaging_product: 'whatsapp',
+      to: to,
+      type: 'text',
+      text: { body: text },
+    };
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.whatsappToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`WhatsApp API error: ${JSON.stringify(errorData)}`);
+      }
+
+      const data = await response.json();
+      this.logger.log(`Message sent successfully: ${JSON.stringify(data)}`);
     } catch (error) {
-      this.logger.error(`Failed to send message to ${to}:`, error);
+      this.logger.error(`Error sending WhatsApp message: ${error.message}`);
       throw error;
     }
   }
 
   /**
-   * Check if a number is authorized
+   * Send a notification (for alerts, daily brief, etc.)
    */
-  isAuthorized(number: string): boolean {
-    const normalized = number.replace(/\D/g, '');
-    return this.authorizedNumbers.some((auth) => {
-      const authNormalized = auth.replace(/\D/g, '');
-      return normalized.includes(authNormalized) || authNormalized.includes(normalized);
-    });
-  }
-
-  /**
-   * Register a message handler
-   */
-  onMessage(handler: (from: string, message: string) => Promise<void>) {
-    if (!this.sock) {
-      this.logger.warn('Socket not ready yet, message handler will register when connected');
-      // Retry after 5 seconds
-      setTimeout(() => this.onMessage(handler), 5000);
-      return;
-    }
-
-    this.sock.ev.on('messages.upsert', async ({ messages }) => {
-      const msg = messages[0];
-
-      if (!msg.message || msg.key.fromMe) return;
-
-      const from = msg.key.remoteJid;
-      const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
-
-      if (!text || !from) return;
-
-      // Check authorization
-      if (!this.isAuthorized(from)) {
-        this.logger.warn(`Unauthorized access attempt from ${from}`);
-        await this.sendMessage(
-          from,
-          'Sorry, you are not authorized to use this service.',
-        );
-        return;
-      }
-
-      this.logger.log(`Message from ${from}: ${text}`);
-
-      try {
-        await handler(from, text);
-      } catch (error) {
-        this.logger.error('Error handling message:', error);
-        await this.sendMessage(
-          from,
-          'Sorry, there was an error processing your request.',
-        );
-      }
-    });
-  }
-
-  getSocket(): WASocket {
-    return this.sock;
+  async sendNotification(to: string, message: string) {
+    await this.sendMessage(to, message);
   }
 }

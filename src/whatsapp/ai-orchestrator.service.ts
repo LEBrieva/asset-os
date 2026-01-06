@@ -76,7 +76,7 @@ export class AiOrchestratorService {
       ];
 
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages,
         tools,
         tool_choice: 'auto',
@@ -125,7 +125,7 @@ export class AiOrchestratorService {
 
         // Get final response from AI
         const finalResponse = await this.openai.chat.completions.create({
-          model: 'gpt-4',
+          model: 'gpt-4o-mini',
           messages,
         });
 

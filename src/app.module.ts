@@ -9,7 +9,7 @@ import { SnapshotsModule } from './snapshots/snapshots.module';
 import { PricingModule } from './pricing/pricing.module';
 import { PortfolioModule } from './portfolio/portfolio.module';
 import { AdminModule } from './admin/admin.module';
-// import { WhatsAppModule } from './whatsapp/whatsapp.module';
+import { WhatsAppModule } from './whatsapp/whatsapp.module';
 import { SchedulerService } from './scheduler/scheduler.service';
 
 @Module({
@@ -25,7 +25,7 @@ import { SchedulerService } from './scheduler/scheduler.service';
     PricingModule,
     PortfolioModule,
     AdminModule,
-    // WhatsAppModule, // Desactivado temporalmente - habilitar cuando se configure OPENAI_API_KEY
+    WhatsAppModule,
   ],
   controllers: [AppController],
   providers: [AppService, SchedulerService],
