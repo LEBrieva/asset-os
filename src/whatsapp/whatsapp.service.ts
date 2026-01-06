@@ -79,8 +79,11 @@ export class WhatsAppService {
         // Check if it already has the '15'
         const afterAreaCode = phoneNumber.substring(5, 7);
         if (afterAreaCode !== '15') {
-          // Insert '15' after area code
-          return phoneNumber.substring(0, 5) + '15' + phoneNumber.substring(5);
+          // Insert '15' after area code: 5491122540279 -> 54911 + 15 + 22540279
+          // But we need to remove one digit: 5491122540279 (13) -> 5491152254027 (13)
+          // Take first 2 digits of the number after area code, then add '15', then the rest
+          const numberPart = phoneNumber.substring(5); // 22540279
+          return phoneNumber.substring(0, 5) + '15' + numberPart.substring(2); // 54911 + 15 + 2254027 = 5491152254027
         }
       }
     }
