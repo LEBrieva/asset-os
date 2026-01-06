@@ -27,6 +27,12 @@ export class CommandsService {
       case '/alloc':
         return this.handleAllocation(args[0]);
 
+      case '/change':
+        return this.handleChange();
+
+      case '/history':
+        return this.handleHistory(args[0]);
+
       case '/help':
         return this.handleHelp();
 
@@ -109,6 +115,71 @@ export class CommandsService {
   }
 
   /**
+   * /change - Portfolio change (yesterday vs today)
+   */
+  private async handleChange(): Promise<string> {
+    const change = await this.portfolioService.getPortfolioChange();
+
+    const changeSign = change.changeUsd >= 0 ? '+' : '';
+    const changePct = (change.changePct * 100).toFixed(2);
+
+    let message = `*Portfolio Change*\n\n`;
+    message += `From: ${change.fromDate.toLocaleDateString()}\n`;
+    message += `To: ${change.toDate.toLocaleDateString()}\n\n`;
+    message += `Previous: $${change.fromTotalUsd.toLocaleString()}\n`;
+    message += `Current: $${change.toTotalUsd.toLocaleString()}\n`;
+    message += `Change: ${changeSign}$${change.changeUsd.toLocaleString()} (${changeSign}${changePct}%)\n\n`;
+
+    if (change.topChanges.length > 0) {
+      message += `*Top Changes:*\n`;
+      for (const item of change.topChanges) {
+        const itemSign = item.changeUsd >= 0 ? '+' : '';
+        message += `${item.asset}: ${itemSign}$${item.changeUsd.toLocaleString()}\n`;
+      }
+    }
+
+    return message;
+  }
+
+  /**
+   * /history <asset> - Asset history (yesterday vs today)
+   */
+  private async handleHistory(asset?: string): Promise<string> {
+    if (!asset) {
+      return 'Please specify an asset. Example: /history BTC';
+    }
+
+    const history = await this.portfolioService.getAssetHistory(asset);
+
+    const amountChangeSign = history.amount.change >= 0 ? '+' : '';
+    const amountChangePct = (history.amount.changePct * 100).toFixed(2);
+    const usdChangeSign = history.usdValue.change >= 0 ? '+' : '';
+    const priceChangeSign = history.price.change >= 0 ? '+' : '';
+    const priceChangePct = (history.price.changePct * 100).toFixed(2);
+
+    let message = `*${history.asset} History*\n\n`;
+    message += `From: ${history.fromDate.toLocaleDateString()}\n`;
+    message += `To: ${history.toDate.toLocaleDateString()}\n\n`;
+
+    message += `*Token Amount:*\n`;
+    message += `Previous: ${history.amount.from.toLocaleString()}\n`;
+    message += `Current: ${history.amount.to.toLocaleString()}\n`;
+    message += `Change: ${amountChangeSign}${history.amount.change.toLocaleString()} (${amountChangeSign}${amountChangePct}%)\n\n`;
+
+    message += `*USD Value:*\n`;
+    message += `Previous: $${history.usdValue.from.toLocaleString()}\n`;
+    message += `Current: $${history.usdValue.to.toLocaleString()}\n`;
+    message += `Change: ${usdChangeSign}$${history.usdValue.change.toLocaleString()}\n\n`;
+
+    message += `*Price per Token:*\n`;
+    message += `Previous: $${history.price.from.toLocaleString()}\n`;
+    message += `Current: $${history.price.to.toLocaleString()}\n`;
+    message += `Change: ${priceChangeSign}$${history.price.change.toLocaleString()} (${priceChangeSign}${priceChangePct}%)`;
+
+    return message;
+  }
+
+  /**
    * /help - Show available commands
    */
   private handleHelp(): Promise<string> {
@@ -118,6 +189,8 @@ export class CommandsService {
         `/total - Portfolio summary\n` +
         `/status - System status\n` +
         `/alloc [asset|provider] - Allocation breakdown\n` +
+        `/change - Portfolio change (yesterday vs today)\n` +
+        `/history <asset> - Asset history (e.g., /history BTC)\n` +
         `/help - Show this message\n\n` +
         `You can also ask questions in natural language!`,
     );

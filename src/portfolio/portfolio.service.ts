@@ -257,6 +257,120 @@ export class PortfolioService {
   }
 
   /**
+   * Get portfolio change between two dates
+   */
+  async getPortfolioChange(fromDate?: Date, toDate?: Date) {
+    const from = fromDate || (() => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      return yesterday;
+    })();
+    const to = toDate || new Date();
+
+    from.setHours(0, 0, 0, 0);
+    to.setHours(0, 0, 0, 0);
+
+    const [fromSummary, toSummary] = await Promise.all([
+      this.getSummary(from),
+      this.getSummary(to),
+    ]);
+
+    const changeUsd = toSummary.totalUsd - fromSummary.totalUsd;
+    const changePct = fromSummary.totalUsd > 0 ? changeUsd / fromSummary.totalUsd : 0;
+
+    // Get asset-level changes
+    const fromAlloc = await this.getAllocation(from, 'asset');
+    const toAlloc = await this.getAllocation(to, 'asset');
+
+    const assetChanges = [];
+    const allAssets = new Set([
+      ...fromAlloc.items.map(i => i.key),
+      ...toAlloc.items.map(i => i.key),
+    ]);
+
+    for (const asset of allAssets) {
+      const fromValue = fromAlloc.items.find(i => i.key === asset)?.usd || 0;
+      const toValue = toAlloc.items.find(i => i.key === asset)?.usd || 0;
+      const change = toValue - fromValue;
+
+      if (Math.abs(change) > 0.01) {
+        assetChanges.push({
+          asset,
+          changeUsd: parseFloat(change.toFixed(2)),
+          fromUsd: parseFloat(fromValue.toFixed(2)),
+          toUsd: parseFloat(toValue.toFixed(2)),
+        });
+      }
+    }
+
+    assetChanges.sort((a, b) => Math.abs(b.changeUsd) - Math.abs(a.changeUsd));
+
+    return {
+      fromDate: from,
+      toDate: to,
+      fromTotalUsd: fromSummary.totalUsd,
+      toTotalUsd: toSummary.totalUsd,
+      changeUsd: parseFloat(changeUsd.toFixed(2)),
+      changePct: parseFloat(changePct.toFixed(4)),
+      topChanges: assetChanges.slice(0, 5),
+    };
+  }
+
+  /**
+   * Get asset history between two dates
+   */
+  async getAssetHistory(asset: string, fromDate?: Date, toDate?: Date) {
+    const from = fromDate || (() => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      return yesterday;
+    })();
+    const to = toDate || new Date();
+
+    from.setHours(0, 0, 0, 0);
+    to.setHours(0, 0, 0, 0);
+
+    const [fromHoldings, toHoldings] = await Promise.all([
+      this.getAssetHoldings(asset, from),
+      this.getAssetHoldings(asset, to),
+    ]);
+
+    const amountChange = toHoldings.totalAmount - fromHoldings.totalAmount;
+    const usdChange = toHoldings.totalUsd - fromHoldings.totalUsd;
+    const priceChange = toHoldings.pricePerToken - fromHoldings.pricePerToken;
+
+    const amountChangePct = fromHoldings.totalAmount > 0
+      ? amountChange / fromHoldings.totalAmount
+      : 0;
+    const priceChangePct = fromHoldings.pricePerToken > 0
+      ? priceChange / fromHoldings.pricePerToken
+      : 0;
+
+    return {
+      asset: asset.toUpperCase(),
+      fromDate: from,
+      toDate: to,
+      amount: {
+        from: fromHoldings.totalAmount,
+        to: toHoldings.totalAmount,
+        change: parseFloat(amountChange.toFixed(8)),
+        changePct: parseFloat(amountChangePct.toFixed(4)),
+      },
+      usdValue: {
+        from: fromHoldings.totalUsd,
+        to: toHoldings.totalUsd,
+        change: parseFloat(usdChange.toFixed(2)),
+      },
+      price: {
+        from: fromHoldings.pricePerToken,
+        to: toHoldings.pricePerToken,
+        change: parseFloat(priceChange.toFixed(2)),
+        changePct: parseFloat(priceChangePct.toFixed(4)),
+      },
+    };
+  }
+
+  /**
    * Calculate and update USD values for all balances in a snapshot
    */
   private async calculateUsdValues(snapshotId: string) {

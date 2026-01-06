@@ -94,6 +94,51 @@ export class AiOrchestratorService {
             },
           },
         },
+        {
+          type: 'function',
+          function: {
+            name: 'get_portfolio_change',
+            description: 'Compare portfolio total value between two dates. Shows if portfolio went up or down, by how much in USD and percentage, and which assets contributed most to the change. Defaults to comparing yesterday vs today.',
+            parameters: {
+              type: 'object',
+              properties: {
+                fromDate: {
+                  type: 'string',
+                  description: 'Start date in YYYY-MM-DD format. Defaults to yesterday.',
+                },
+                toDate: {
+                  type: 'string',
+                  description: 'End date in YYYY-MM-DD format. Defaults to today.',
+                },
+              },
+            },
+          },
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'get_asset_history',
+            description: 'Compare a specific asset between two dates. Shows changes in token amount (bought/sold), USD value, and price. Helps identify if change was due to trading activity or market price movement. Defaults to comparing yesterday vs today.',
+            parameters: {
+              type: 'object',
+              properties: {
+                asset: {
+                  type: 'string',
+                  description: 'Asset symbol (e.g., BTC, ETH, XRP, USDT)',
+                },
+                fromDate: {
+                  type: 'string',
+                  description: 'Start date in YYYY-MM-DD format. Defaults to yesterday.',
+                },
+                toDate: {
+                  type: 'string',
+                  description: 'End date in YYYY-MM-DD format. Defaults to today.',
+                },
+              },
+              required: ['asset'],
+            },
+          },
+        },
       ];
 
       const response = await this.openai.chat.completions.create({
@@ -136,6 +181,25 @@ export class AiOrchestratorService {
               functionResult = await this.portfolioService.getAssetHoldings(
                 functionArgs.asset,
                 assetDate,
+              );
+              break;
+
+            case 'get_portfolio_change':
+              const changeFrom = functionArgs.fromDate ? new Date(functionArgs.fromDate) : undefined;
+              const changeTo = functionArgs.toDate ? new Date(functionArgs.toDate) : undefined;
+              functionResult = await this.portfolioService.getPortfolioChange(
+                changeFrom,
+                changeTo,
+              );
+              break;
+
+            case 'get_asset_history':
+              const historyFrom = functionArgs.fromDate ? new Date(functionArgs.fromDate) : undefined;
+              const historyTo = functionArgs.toDate ? new Date(functionArgs.toDate) : undefined;
+              functionResult = await this.portfolioService.getAssetHistory(
+                functionArgs.asset,
+                historyFrom,
+                historyTo,
               );
               break;
 
