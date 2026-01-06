@@ -69,13 +69,20 @@ export class WhatsAppService {
    * Send a WhatsApp message using Meta Graph API
    */
   async sendMessage(to: string, text: string): Promise<void> {
-    this.logger.log(`Sending message to: ${to}`);
+    // Meta adds '9' for Argentine mobile numbers in webhooks but expects it without '9' when sending
+    // Webhook receives: 5491122540279, but API expects: 541122540279
+    let recipientNumber = to;
+    if (to.startsWith('549')) {
+      recipientNumber = '54' + to.substring(3); // Remove the '9' after country code
+    }
+
+    this.logger.log(`Sending message to: ${to} -> API format: ${recipientNumber}`);
 
     const url = `https://graph.facebook.com/v18.0/${this.phoneNumberId}/messages`;
 
     const payload = {
       messaging_product: 'whatsapp',
-      to: to,
+      to: recipientNumber,
       type: 'text',
       text: { body: text },
     };
