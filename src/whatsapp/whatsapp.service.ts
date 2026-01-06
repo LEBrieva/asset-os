@@ -66,14 +66,40 @@ export class WhatsAppService {
   }
 
   /**
+   * Normalize Argentine phone number for Meta WhatsApp API
+   * Converts 5491122540279 to 5491152254027 (adds the '15' for cellphones)
+   */
+  private normalizeArgentineNumber(phoneNumber: string): string {
+    // Check if it's an Argentine number (starts with 549)
+    if (phoneNumber.startsWith('549')) {
+      const areaCode = phoneNumber.substring(3, 5); // Get area code (11, 23, etc)
+
+      // If it's area code 11-15 (Buenos Aires and surroundings)
+      if (['11', '12', '13', '14', '15'].includes(areaCode)) {
+        // Check if it already has the '15'
+        const afterAreaCode = phoneNumber.substring(5, 7);
+        if (afterAreaCode !== '15') {
+          // Insert '15' after area code
+          return phoneNumber.substring(0, 5) + '15' + phoneNumber.substring(5);
+        }
+      }
+    }
+    return phoneNumber;
+  }
+
+  /**
    * Send a WhatsApp message using Meta Graph API
    */
   async sendMessage(to: string, text: string): Promise<void> {
+    // Normalize the phone number for Argentine numbers
+    const normalizedTo = this.normalizeArgentineNumber(to);
+    this.logger.log(`Sending to: ${to} -> normalized: ${normalizedTo}`);
+
     const url = `https://graph.facebook.com/v18.0/${this.phoneNumberId}/messages`;
 
     const payload = {
       messaging_product: 'whatsapp',
-      to: to,
+      to: normalizedTo,
       type: 'text',
       text: { body: text },
     };
