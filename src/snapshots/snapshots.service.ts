@@ -386,4 +386,199 @@ export class SnapshotsService {
       throw error;
     }
   }
+
+  /**
+   * Sync Nexo balances from API
+   */
+  async syncNexoFromAPI(snapshotDate?: Date) {
+    const snapshot = snapshotDate
+      ? await this.getOrCreateSnapshotForDate(snapshotDate)
+      : await this.getOrCreateTodaySnapshot(SnapshotSource.MANUAL);
+
+    this.logger.log(`Syncing Nexo from API for snapshot ${snapshot.id}`);
+
+    const startedAt = new Date();
+
+    try {
+      // Fetch balances from Nexo API
+      const response = await this.nexoService.getBalancesFromAPI();
+
+      // Get or create Nexo account
+      const account = await this.getOrCreateAccount(Provider.NEXO);
+
+      // Save balances
+      await this.saveBalances(snapshot.id, account.id, response.balances);
+
+      // Record successful sync
+      await this.prisma.providerSyncRun.upsert({
+        where: {
+          snapshotId_provider: {
+            snapshotId: snapshot.id,
+            provider: Provider.NEXO,
+          },
+        },
+        create: {
+          snapshotId: snapshot.id,
+          provider: Provider.NEXO,
+          startedAt,
+          finishedAt: new Date(),
+          status: SyncRunStatus.OK,
+        },
+        update: {
+          finishedAt: new Date(),
+          status: SyncRunStatus.OK,
+          errorMessage: null,
+        },
+      });
+
+      // Update snapshot status
+      await this.prisma.snapshot.update({
+        where: { id: snapshot.id },
+        data: { status: SnapshotStatus.COMPLETE },
+      });
+
+      this.logger.log(
+        `Nexo API sync successful for snapshot ${snapshot.id}`,
+      );
+
+      return {
+        snapshotId: snapshot.id,
+        assetsImported: response.balances.length,
+      };
+    } catch (error) {
+      this.logger.error(`Nexo API sync failed: ${error.message}`);
+
+      // Record failed sync
+      await this.prisma.providerSyncRun.upsert({
+        where: {
+          snapshotId_provider: {
+            snapshotId: snapshot.id,
+            provider: Provider.NEXO,
+          },
+        },
+        create: {
+          snapshotId: snapshot.id,
+          provider: Provider.NEXO,
+          startedAt,
+          finishedAt: new Date(),
+          status: SyncRunStatus.ERROR,
+          errorMessage: error.message,
+        },
+        update: {
+          finishedAt: new Date(),
+          status: SyncRunStatus.ERROR,
+          errorMessage: error.message,
+        },
+      });
+
+      // Update snapshot status
+      await this.prisma.snapshot.update({
+        where: { id: snapshot.id },
+        data: { status: SnapshotStatus.FAILED },
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Add Nexo balances manually
+   */
+  async addNexoManualBalances(
+    balances: Array<{ asset: string; amount: number }>,
+    snapshotDate?: Date,
+  ) {
+    const snapshot = snapshotDate
+      ? await this.getOrCreateSnapshotForDate(snapshotDate)
+      : await this.getOrCreateTodaySnapshot(SnapshotSource.MANUAL);
+
+    this.logger.log(`Adding Nexo manual balances for snapshot ${snapshot.id}`);
+
+    const startedAt = new Date();
+
+    try {
+      // Convert manual input to AssetBalance format
+      const assetBalances = balances.map((b) => ({
+        asset: b.asset.toUpperCase(),
+        free: b.amount.toFixed(8),
+        locked: '0',
+      }));
+
+      // Get or create Nexo account
+      const account = await this.getOrCreateAccount(Provider.NEXO);
+
+      // Save balances
+      await this.saveBalances(snapshot.id, account.id, assetBalances);
+
+      // Record successful sync
+      await this.prisma.providerSyncRun.upsert({
+        where: {
+          snapshotId_provider: {
+            snapshotId: snapshot.id,
+            provider: Provider.NEXO,
+          },
+        },
+        create: {
+          snapshotId: snapshot.id,
+          provider: Provider.NEXO,
+          startedAt,
+          finishedAt: new Date(),
+          status: SyncRunStatus.OK,
+        },
+        update: {
+          finishedAt: new Date(),
+          status: SyncRunStatus.OK,
+          errorMessage: null,
+        },
+      });
+
+      // Update snapshot status
+      await this.prisma.snapshot.update({
+        where: { id: snapshot.id },
+        data: { status: SnapshotStatus.COMPLETE },
+      });
+
+      this.logger.log(
+        `Nexo manual balances added successfully for snapshot ${snapshot.id}`,
+      );
+
+      return {
+        snapshotId: snapshot.id,
+        assetsImported: assetBalances.length,
+      };
+    } catch (error) {
+      this.logger.error(`Nexo manual balances failed: ${error.message}`);
+
+      // Record failed sync
+      await this.prisma.providerSyncRun.upsert({
+        where: {
+          snapshotId_provider: {
+            snapshotId: snapshot.id,
+            provider: Provider.NEXO,
+          },
+        },
+        create: {
+          snapshotId: snapshot.id,
+          provider: Provider.NEXO,
+          startedAt,
+          finishedAt: new Date(),
+          status: SyncRunStatus.ERROR,
+          errorMessage: error.message,
+        },
+        update: {
+          finishedAt: new Date(),
+          status: SyncRunStatus.ERROR,
+          errorMessage: error.message,
+        },
+      });
+
+      // Update snapshot status
+      await this.prisma.snapshot.update({
+        where: { id: snapshot.id },
+        data: { status: SnapshotStatus.FAILED },
+      });
+
+      throw error;
+    }
+  }
 }

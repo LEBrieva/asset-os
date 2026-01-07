@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { parse } from 'csv-parse/sync';
+import * as crypto from 'crypto';
 import {
   Provider,
   ProviderBalanceResponse,
@@ -18,9 +20,26 @@ interface NexoCSVRecord {
   'Date / Time': string;
 }
 
+interface NexoAPIBalance {
+  assetName: string;
+  totalBalance: string;
+  availableBalance: string;
+  lockedBalance: string;
+  debt: string;
+  interest: string;
+}
+
 @Injectable()
 export class NexoService {
   private readonly logger = new Logger(NexoService.name);
+  private readonly apiKey: string;
+  private readonly apiSecret: string;
+  private readonly apiUrl = 'https://api.nexo.io';
+
+  constructor(private readonly configService: ConfigService) {
+    this.apiKey = this.configService.get<string>('NEXO_API_KEY') || '';
+    this.apiSecret = this.configService.get<string>('NEXO_API_SECRET') || '';
+  }
 
   /**
    * Parse Nexo CSV export and extract balances
@@ -110,5 +129,83 @@ export class NexoService {
       this.logger.error('Nexo CSV test failed', error.stack);
       return false;
     }
+  }
+
+  /**
+   * Get balances from Nexo API
+   * Requires NEXO_API_KEY and NEXO_API_SECRET environment variables
+   */
+  async getBalancesFromAPI(): Promise<ProviderBalanceResponse> {
+    try {
+      this.logger.log('Fetching balances from Nexo API...');
+
+      if (!this.apiKey || !this.apiSecret) {
+        throw new Error('Nexo API credentials not configured. Set NEXO_API_KEY and NEXO_API_SECRET in .env');
+      }
+
+      // Generate authentication headers
+      const timestamp = Date.now().toString();
+      const nonce = crypto.randomBytes(16).toString('hex');
+      const signature = this.generateSignature(timestamp, nonce);
+
+      // Call Nexo API
+      const response = await fetch(`${this.apiUrl}/wallets`, {
+        method: 'GET',
+        headers: {
+          'X-API-KEY': this.apiKey,
+          'X-NONCE': nonce,
+          'X-TIMESTAMP': timestamp,
+          'X-SIGNATURE': signature,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Nexo API error (${response.status}): ${errorText}`);
+      }
+
+      const data = await response.json();
+      this.logger.debug('Nexo API response:', JSON.stringify(data));
+
+      // Parse API response to balances
+      const balances: AssetBalance[] = [];
+
+      if (data.balances && Array.isArray(data.balances)) {
+        for (const balance of data.balances as NexoAPIBalance[]) {
+          const totalBalance = parseFloat(balance.totalBalance || '0');
+          const availableBalance = parseFloat(balance.availableBalance || '0');
+          const lockedBalance = parseFloat(balance.lockedBalance || '0');
+
+          if (totalBalance > 0) {
+            balances.push({
+              asset: balance.assetName.toUpperCase(),
+              free: availableBalance.toFixed(8),
+              locked: lockedBalance.toFixed(8),
+            });
+          }
+        }
+      }
+
+      this.logger.log(`Fetched ${balances.length} assets from Nexo API`);
+
+      return {
+        provider: Provider.NEXO,
+        balances,
+        timestamp: new Date(),
+      };
+    } catch (error) {
+      this.logger.error('Failed to fetch Nexo balances from API', error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Generate HMAC signature for Nexo API authentication
+   */
+  private generateSignature(timestamp: string, nonce: string): string {
+    const message = `${timestamp}${nonce}`;
+    const hmac = crypto.createHmac('sha256', this.apiSecret);
+    hmac.update(message);
+    return hmac.digest('hex');
   }
 }

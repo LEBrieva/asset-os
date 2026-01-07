@@ -60,4 +60,38 @@ export class AdminController {
       assetsImported: result.assetsImported,
     };
   }
+
+  @Post('nexo/sync')
+  async syncNexoFromAPI(@Body('snapshotDate') snapshotDate?: string) {
+    const date = snapshotDate ? new Date(snapshotDate) : undefined;
+    const result = await this.snapshotsService.syncNexoFromAPI(date);
+
+    return {
+      snapshotId: result.snapshotId,
+      status: 'success',
+      assetsImported: result.assetsImported,
+    };
+  }
+
+  @Post('nexo/manual')
+  async addNexoManualBalances(
+    @Body('balances') balances: Array<{ asset: string; amount: number }>,
+    @Body('snapshotDate') snapshotDate?: string,
+  ) {
+    if (!balances || balances.length === 0) {
+      throw new BadRequestException('Balances array is required');
+    }
+
+    const date = snapshotDate ? new Date(snapshotDate) : undefined;
+    const result = await this.snapshotsService.addNexoManualBalances(
+      balances,
+      date,
+    );
+
+    return {
+      snapshotId: result.snapshotId,
+      status: 'success',
+      assetsImported: result.assetsImported,
+    };
+  }
 }
