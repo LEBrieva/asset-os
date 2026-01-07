@@ -41,9 +41,14 @@ BITGET_API_PASSPHRASE=tu_passphrase_aqui
 # OpenAI
 OPENAI_API_KEY=tu_openai_api_key_aqui
 
-# WhatsApp - números autorizados (separados por coma)
-WHATSAPP_AUTHORIZED_NUMBERS=+5491112345678
+# WhatsApp Business API (Meta)
+WHATSAPP_TOKEN=tu_token_de_meta_aqui
+WHATSAPP_PHONE_NUMBER_ID=tu_phone_number_id_aqui
+WHATSAPP_VERIFY_TOKEN=tu_verify_token_aqui
+WHATSAPP_BUSINESS_ACCOUNT_ID=tu_waba_id_aqui
 ```
+
+**Nota:** Para configurar WhatsApp, consulta la guía completa en `src/whatsapp/CONFIG_META.md`
 
 ### 2. Levantar servicios
 
@@ -68,7 +73,7 @@ npm run build
 npm run start:dev
 ```
 
-La primera vez que arranques, verás un QR code en la consola. Escanealo con WhatsApp para vincular tu número.
+**Nota:** Para usar WhatsApp, primero debes configurar la integración con Meta Business API. Ver `src/whatsapp/CONFIG_META.md` para instrucciones detalladas.
 
 ## Uso
 
@@ -126,24 +131,26 @@ GET http://localhost:3000/admin/sync/status/:snapshotId
 
 ### Comandos WhatsApp
 
-Una vez vinculado WhatsApp, podés enviar estos comandos:
+Una vez configurado WhatsApp (ver `src/whatsapp/CONFIG_META.md`), podés enviar estos comandos:
 
 - `/total` - Resumen del portfolio
 - `/status` - Estado del sistema
 - `/alloc` - Allocation por asset
 - `/alloc provider` - Allocation por provider
-- `/help` - Ayuda
+- `/change` - Cambios del portfolio (ayer vs hoy)
+- `/history <ASSET>` - Historial de un activo (ej: `/history BTC`)
+- `/help` - Ayuda completa con ejemplos
 
-### Queries con IA (Natural Language)
+### Queries con IA (Lenguaje Natural)
 
-También podés hacer preguntas en lenguaje natural:
+También podés hacer preguntas en español usando lenguaje natural:
 
-- "¿Cuánto tengo en total?"
-- "¿Cuál es mi top 5 activos?"
-- "Mostrame la allocation por provider"
-- "¿Cómo cambió mi portfolio desde ayer?"
+- "¿Cuánto vale mi portfolio?"
+- "¿Cuántos XRP tengo?"
+- "¿Mi portfolio subió o bajó?"
+- "¿Compré o vendí BTC?"
 
-La IA usa OpenAI GPT-4 con function calling para consultar tu DB real (sin alucinaciones).
+La IA usa OpenAI GPT-4o-mini con function calling para consultar tu DB real (sin alucinaciones). Está configurada para responder **solo** a consultas sobre tu portfolio personal.
 
 ## Snapshots Automáticos
 
@@ -172,10 +179,11 @@ El sistema ejecuta un snapshot diario a las **7:00 AM (America/Sao_Paulo)** que:
 
 ## Troubleshooting
 
-### WhatsApp no conecta
-1. Asegurate que el QR se muestre en consola
-2. Escanea el QR rápido (expira en ~60 seg)
-3. Si falla, borrá la carpeta `whatsapp-session/` y reiniciá
+### WhatsApp no responde
+1. Verificá que el webhook esté configurado correctamente en Meta
+2. Verificá que el token de acceso sea válido (no haya expirado)
+3. Verificá los logs del servidor para ver si llegan los mensajes
+4. Consultá la guía completa en `src/whatsapp/CONFIG_META.md`
 
 ### Error de Bitget API
 1. Verificá que las keys sean correctas en `.env`
@@ -225,8 +233,8 @@ docker-compose logs -f         # Ver logs
 - **Database**: PostgreSQL 16
 - **ORM**: Prisma 7
 - **Cache**: Redis 7
-- **WhatsApp**: Baileys (WhatsApp Web protocol)
-- **IA**: OpenAI GPT-4 con function calling
+- **WhatsApp**: Meta WhatsApp Business API (webhook-based)
+- **IA**: OpenAI GPT-4o-mini con function calling
 - **Pricing**: CoinGecko API (free tier)
 - **Scheduler**: @nestjs/schedule (cron)
 

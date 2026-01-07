@@ -28,11 +28,16 @@ BITGET_API_PASSPHRASE=tu_passphrase_aqui
 # OpenAI (obligatorio para IA)
 OPENAI_API_KEY=sk-...tu_key_aqui
 
-# WhatsApp - tu número (o los que quieras autorizar)
-WHATSAPP_AUTHORIZED_NUMBERS=+5491112345678
+# WhatsApp Business API (Meta)
+WHATSAPP_TOKEN=tu_token_de_meta_aqui
+WHATSAPP_PHONE_NUMBER_ID=tu_phone_number_id_aqui
+WHATSAPP_VERIFY_TOKEN=tu_verify_token_aqui
+WHATSAPP_BUSINESS_ACCOUNT_ID=tu_waba_id_aqui
 ```
 
-**Importante:** Las keys de Bitget deben ser **read-only** (sin permisos de trading/withdraw).
+**Importante:**
+- Las keys de Bitget deben ser **read-only** (sin permisos de trading/withdraw)
+- Para configurar WhatsApp, seguí la guía completa en `src/whatsapp/CONFIG_META.md`
 
 ### 2. Iniciar servicios
 
@@ -50,7 +55,7 @@ docker-compose ps
 npm run start:dev
 ```
 
-**Primera vez:** Verás un QR code en la terminal. Escanealo con WhatsApp para vincular.
+**Nota sobre WhatsApp:** Esta integración usa Meta WhatsApp Business API (no QR code). Seguí la guía en `src/whatsapp/CONFIG_META.md` para configurar el webhook y obtener tus credenciales.
 
 ---
 
@@ -76,7 +81,7 @@ curl http://localhost:3000/portfolio/allocation?groupBy=asset
 
 ### Opción B: WhatsApp
 
-Enviá un mensaje a tu número WhatsApp que escaneó el QR:
+Una vez configurado WhatsApp (ver `src/whatsapp/CONFIG_META.md`), enviá un mensaje:
 
 ```
 /total
@@ -87,12 +92,15 @@ Deberías recibir un resumen de tu portfolio.
 **Otros comandos:**
 - `/status` - Estado del sistema
 - `/alloc` - Allocation por asset
-- `/help` - Lista de comandos
+- `/change` - Cambios del portfolio
+- `/history BTC` - Historial de Bitcoin
+- `/help` - Lista completa con ejemplos
 
-**Preguntas en lenguaje natural:**
-- "¿Cuánto tengo en total?"
-- "Mostrame mi top 5 activos"
-- "¿Cuál es mi allocation?"
+**Preguntas en lenguaje natural (en español):**
+- "¿Cuánto vale mi portfolio?"
+- "¿Cuántos XRP tengo?"
+- "¿Mi portfolio subió o bajó?"
+- "¿Compré o vendí BTC?"
 
 ---
 
@@ -207,13 +215,15 @@ curl -X POST http://localhost:3000/admin/sync/run \
 2. Verificá que la IP esté whitelisted en Bitget
 3. Verificá que las keys tengan permisos de lectura
 
-### "WhatsApp desconectado"
+### "WhatsApp no responde"
 
 ```bash
-# Borrá la sesión y volvé a escanear:
-rm -rf whatsapp-session/
-npm run start:dev
-# Escaneá el QR de nuevo
+# Verificá que el webhook esté configurado en Meta
+# Verificá que el token de acceso sea válido
+# Revisá los logs del servidor para ver si llegan mensajes
+
+# Consultá la guía completa:
+# src/whatsapp/CONFIG_META.md
 ```
 
 ### "Precio no encontrado para [ASSET]"
@@ -266,7 +276,7 @@ curl -X POST http://localhost:3000/admin/sync/run \
 - **Prisma Docs**: https://www.prisma.io/docs
 - **Bitget API**: https://www.bitget.com/api-doc/
 - **OpenAI Function Calling**: https://platform.openai.com/docs/guides/function-calling
-- **Baileys (WhatsApp)**: https://github.com/WhiskeySockets/Baileys
+- **Meta WhatsApp Business API**: https://developers.facebook.com/docs/whatsapp/cloud-api/
 
 ---
 

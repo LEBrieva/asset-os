@@ -201,8 +201,13 @@ En la sección "Environment Variables", agrega:
 | `BITGET_API_PASSPHRASE` | tu_passphrase_de_bitget |
 | `SIMPLEFX_API_KEY` | tu_api_key_de_simplefx |
 | `SIMPLEFX_API_SECRET` | tu_secret_de_simplefx |
+| `OPENAI_API_KEY` | tu_openai_api_key |
+| `WHATSAPP_TOKEN` | tu_token_de_meta |
+| `WHATSAPP_PHONE_NUMBER_ID` | tu_phone_number_id |
+| `WHATSAPP_VERIFY_TOKEN` | tu_verify_token |
+| `WHATSAPP_BUSINESS_ACCOUNT_ID` | tu_waba_id |
 
-**IMPORTANTE**: Reemplaza los valores con tus credenciales reales.
+**IMPORTANTE**: Reemplaza los valores con tus credenciales reales. Para configurar WhatsApp, consulta `src/whatsapp/CONFIG_META.md`.
 
 ### 3.5 Agregar variable para migraciones
 
@@ -436,9 +441,11 @@ Una vez desplegado:
    0 1 * * * curl -X POST https://asset-os.onrender.com/admin/sync/run -H "Content-Type: application/json" -d '{}'
    ```
 
-3. **Agregar WhatsApp** (siguiente fase):
-   - Ya tendrás URL pública para webhooks
-   - HTTPS automático (requerido por WhatsApp)
+3. **Configurar WhatsApp**:
+   - Ya tendrás URL pública para webhooks (ej: `https://asset-os.onrender.com/whatsapp/webhook`)
+   - HTTPS automático (requerido por Meta Business API)
+   - Consultá la guía completa en `src/whatsapp/CONFIG_META.md`
+   - Configurá el webhook en Meta con tu URL de Render
 
 ---
 
