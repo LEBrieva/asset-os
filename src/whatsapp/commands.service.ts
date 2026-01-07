@@ -183,16 +183,45 @@ export class CommandsService {
    * /help - Show available commands
    */
   private handleHelp(): Promise<string> {
-    const help = `*Available Commands:*\n\n`;
-    return Promise.resolve(
-      help +
-        `/total - Portfolio summary\n` +
-        `/status - System status\n` +
-        `/alloc [asset|provider] - Allocation breakdown\n` +
-        `/change - Portfolio change (yesterday vs today)\n` +
-        `/history <asset> - Asset history (e.g., /history BTC)\n` +
-        `/help - Show this message\n\n` +
-        `You can also ask questions in natural language!`,
-    );
+    let help = `*Comandos Disponibles:*\n\n`;
+
+    help += `📊 *Comandos de Portfolio:*\n`;
+    help += `/total\n`;
+    help += `  → Muestra resumen completo de tu portfolio\n\n`;
+
+    help += `/alloc\n`;
+    help += `  → Distribución por criptomoneda\n`;
+    help += `  Ejemplo: /alloc\n\n`;
+
+    help += `/alloc provider\n`;
+    help += `  → Distribución por exchange\n`;
+    help += `  Ejemplo: /alloc provider\n\n`;
+
+    help += `📈 *Cambios e Historial:*\n`;
+    help += `/change\n`;
+    help += `  → Cambios del portfolio (ayer vs hoy)\n\n`;
+
+    help += `/history <ASSET>\n`;
+    help += `  → Historial de un activo específico\n`;
+    help += `  Ejemplos:\n`;
+    help += `    • /history BTC\n`;
+    help += `    • /history ETH\n`;
+    help += `    • /history USDT\n\n`;
+
+    help += `⚙️ *Sistema:*\n`;
+    help += `/status\n`;
+    help += `  → Estado del sistema y proveedores\n\n`;
+
+    help += `/help\n`;
+    help += `  → Muestra este mensaje\n\n`;
+
+    help += `💬 *Lenguaje Natural:*\n`;
+    help += `También puedes hacer preguntas en lenguaje natural!\n`;
+    help += `Ejemplos:\n`;
+    help += `  • "¿Cuántos XRP tengo?"\n`;
+    help += `  • "¿Mi portfolio subió o bajó?"\n`;
+    help += `  • "¿Compré o vendí BTC?"`;
+
+    return Promise.resolve(help);
   }
 }

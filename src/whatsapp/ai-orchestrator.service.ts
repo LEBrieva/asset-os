@@ -222,13 +222,13 @@ export class AiOrchestratorService {
           messages,
         });
 
-        return finalResponse.choices[0].message.content || 'No response from AI';
+        return finalResponse.choices[0].message.content || 'No pude generar una respuesta. Utiliza /help para ver los comandos disponibles.';
       }
 
-      return responseMessage.content || 'No response from AI';
+      return responseMessage.content || 'No pude generar una respuesta. Utiliza /help para ver los comandos disponibles.';
     } catch (error) {
       this.logger.error('AI query failed:', error);
-      return 'Sorry, I could not process your request. Please try again or use a command like /total or /status.';
+      return 'Lo siento, no pude procesar tu consulta. Utiliza /help para ver los comandos disponibles o intenta reformular tu pregunta.';
     }
   }
 }
