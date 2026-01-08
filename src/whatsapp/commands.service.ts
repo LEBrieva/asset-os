@@ -33,6 +33,9 @@ export class CommandsService {
       case '/history':
         return this.handleHistory(args[0]);
 
+      case '/nexo':
+        return this.handleNexo(args);
+
       case '/help':
         return this.handleHelp();
 
@@ -180,6 +183,68 @@ export class CommandsService {
   }
 
   /**
+   * /nexo set <ASSET> <AMOUNT> [<ASSET2> <AMOUNT2> ...] - Update Nexo balances manually
+   */
+  private async handleNexo(args: string[]): Promise<string> {
+    // Check if first arg is 'set'
+    if (args.length === 0 || args[0] !== 'set') {
+      return `Uso: /nexo set <ASSET> <AMOUNT> [<ASSET2> <AMOUNT2> ...]\n\nEjemplo:\n/nexo set BTC 0.5 ETH 2.3 USDT 1000`;
+    }
+
+    // Parse asset-amount pairs
+    // Format: /nexo set BTC 0.5 ETH 2.3 USDT 1000
+    // args = ['set', 'BTC', '0.5', 'ETH', '2.3', 'USDT', '1000']
+    const balances: Array<{ asset: string; amount: number }> = [];
+
+    for (let i = 1; i < args.length; i += 2) {
+      const asset = args[i];
+      const amountStr = args[i + 1];
+
+      if (!asset || !amountStr) {
+        return `Error de formato. Cada activo debe tener su cantidad.\n\nEjemplo:\n/nexo set BTC 0.5 ETH 2.3`;
+      }
+
+      const amount = parseFloat(amountStr);
+      if (isNaN(amount) || amount < 0) {
+        return `Error: "${amountStr}" no es una cantidad válida para ${asset}`;
+      }
+
+      balances.push({
+        asset: asset.toUpperCase(),
+        amount,
+      });
+    }
+
+    if (balances.length === 0) {
+      return `Debes especificar al menos un activo.\n\nEjemplo:\n/nexo set BTC 0.5 ETH 2.3`;
+    }
+
+    try {
+      // Call the service to add balances
+      const result = await this.snapshotsService.addNexoManualBalances(balances);
+
+      // Format success response
+      const today = new Date().toLocaleDateString('es-AR');
+      let message = `✅ *Nexo actualizado para hoy (${today})*\n\n`;
+      message += `*Activos importados:*\n`;
+
+      // We need to get prices to show USD values
+      // For simplicity, we'll just show the amounts
+      for (const balance of balances) {
+        message += `• ${balance.asset}: ${balance.amount.toLocaleString()}\n`;
+      }
+
+      message += `\nTotal de activos: ${balances.length}\n`;
+      message += `\nUsa /total para ver tu portfolio completo.`;
+
+      return message;
+    } catch (error) {
+      this.logger.error('Failed to update Nexo balances:', error);
+      return `❌ Error al actualizar Nexo: ${error.message}\n\nIntenta nuevamente o contacta soporte.`;
+    }
+  }
+
+  /**
    * /help - Show available commands
    */
   private handleHelp(): Promise<string> {
@@ -207,6 +272,13 @@ export class CommandsService {
     help += `    • /history BTC\n`;
     help += `    • /history ETH\n`;
     help += `    • /history USDT\n\n`;
+
+    help += `📝 *Gestión Manual:*\n`;
+    help += `/nexo set <ASSET> <AMOUNT> ...\n`;
+    help += `  → Actualiza balances de Nexo manualmente\n`;
+    help += `  Ejemplos:\n`;
+    help += `    • /nexo set BTC 0.5\n`;
+    help += `    • /nexo set BTC 0.5 ETH 2.3 USDT 1000\n\n`;
 
     help += `⚙️ *Sistema:*\n`;
     help += `/status\n`;
