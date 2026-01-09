@@ -71,6 +71,18 @@ export class SnapshotsService {
       ),
     );
 
+    // After syncing Bitget/SimpleFX, automatically copy Nexo balances from previous day
+    // This ensures Nexo balances don't disappear from the portfolio
+    try {
+      await this.copyNexoBalancesFromPreviousDay(snapshot);
+    } catch (error) {
+      this.logger.warn(
+        'Failed to copy Nexo balances from previous day:',
+        error.message,
+      );
+      // Don't fail the entire sync if this fails - Nexo balances just won't be copied
+    }
+
     // Determine final status
     const allOk = results.every((r) => r.status === 'fulfilled');
     const anyOk = results.some((r) => r.status === 'fulfilled');
@@ -479,6 +491,99 @@ export class SnapshotsService {
 
       throw error;
     }
+  }
+
+  /**
+   * Copy Nexo balances from previous day's snapshot
+   * This ensures Nexo balances don't disappear during daily sync
+   */
+  private async copyNexoBalancesFromPreviousDay(
+    snapshot: { id: string; snapshotDate: Date },
+  ) {
+    this.logger.log(
+      `Checking if we need to copy Nexo balances from previous day for snapshot ${snapshot.id}`,
+    );
+
+    // Find the most recent snapshot with Nexo balances (before today)
+    const previousSnapshot = await this.prisma.snapshot.findFirst({
+      where: {
+        snapshotDate: {
+          lt: snapshot.snapshotDate, // Strictly before today
+        },
+        balances: {
+          some: {
+            account: {
+              provider: Provider.NEXO,
+            },
+          },
+        },
+      },
+      orderBy: {
+        snapshotDate: 'desc',
+      },
+      include: {
+        balances: {
+          where: {
+            account: {
+              provider: Provider.NEXO,
+            },
+          },
+        },
+      },
+    });
+
+    if (!previousSnapshot || previousSnapshot.balances.length === 0) {
+      this.logger.log('No previous Nexo balances found to copy');
+      return;
+    }
+
+    this.logger.log(
+      `Found ${previousSnapshot.balances.length} Nexo balances from ${previousSnapshot.snapshotDate.toISOString()}`,
+    );
+
+    // Get or create Nexo account
+    const account = await this.getOrCreateAccount(Provider.NEXO);
+
+    // Convert previous balances to AssetBalance format
+    const balancesToCopy = previousSnapshot.balances.map((b) => ({
+      asset: b.asset,
+      free:
+        typeof b.free === 'string' ? b.free : b.free.toFixed(8).toString(),
+      locked:
+        typeof b.locked === 'string'
+          ? b.locked
+          : b.locked.toFixed(8).toString(),
+    }));
+
+    // Save copied balances
+    await this.saveBalances(snapshot.id, account.id, balancesToCopy);
+
+    // Record successful "sync" for Nexo
+    const startedAt = new Date();
+    await this.prisma.providerSyncRun.upsert({
+      where: {
+        snapshotId_provider: {
+          snapshotId: snapshot.id,
+          provider: Provider.NEXO,
+        },
+      },
+      create: {
+        snapshotId: snapshot.id,
+        provider: Provider.NEXO,
+        startedAt,
+        finishedAt: new Date(),
+        status: SyncRunStatus.OK,
+      },
+      update: {
+        finishedAt: new Date(),
+        status: SyncRunStatus.OK,
+        errorMessage: null,
+      },
+    });
+
+    this.logger.log(
+      `Copied ${balancesToCopy.length} Nexo balances from previous day`,
+    );
   }
 
   /**
