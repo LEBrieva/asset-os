@@ -220,22 +220,26 @@ export class CommandsService {
     }
 
     try {
-      // Call the service to add balances
+      // Call the service to add balances (incremental update)
       const result = await this.snapshotsService.addNexoManualBalances(balances);
 
       // Format success response
       const today = new Date().toLocaleDateString('es-AR');
       let message = `✅ *Nexo actualizado para hoy (${today})*\n\n`;
-      message += `*Activos importados:*\n`;
+      message += `*Activos actualizados:*\n`;
 
       // We need to get prices to show USD values
       // For simplicity, we'll just show the amounts
       for (const balance of balances) {
-        message += `• ${balance.asset}: ${balance.amount.toLocaleString()}\n`;
+        if (balance.amount === 0) {
+          message += `• ${balance.asset}: Eliminado\n`;
+        } else {
+          message += `• ${balance.asset}: ${balance.amount.toLocaleString()}\n`;
+        }
       }
 
-      message += `\nTotal de activos: ${balances.length}\n`;
-      message += `\nUsa /total para ver tu portfolio completo.`;
+      message += `\n💡 Los demás activos se mantienen del snapshot anterior.\n`;
+      message += `Usa /total para ver tu portfolio completo.`;
 
       return message;
     } catch (error) {

@@ -492,22 +492,78 @@ export class SnapshotsService {
       ? await this.getOrCreateSnapshotForDate(snapshotDate)
       : await this.getOrCreateTodaySnapshot(SnapshotSource.MANUAL);
 
-    this.logger.log(`Adding Nexo manual balances for snapshot ${snapshot.id}`);
+    this.logger.log(
+      `Adding Nexo manual balances (incremental) for snapshot ${snapshot.id}`,
+    );
 
     const startedAt = new Date();
 
     try {
-      // Convert manual input to AssetBalance format
-      const assetBalances = balances.map((b) => ({
-        asset: b.asset.toUpperCase(),
-        free: b.amount.toFixed(8),
-        locked: '0',
-      }));
-
       // Get or create Nexo account
       const account = await this.getOrCreateAccount(Provider.NEXO);
 
-      // Save balances
+      // Find the most recent snapshot with Nexo balances (can be today or previous)
+      const previousSnapshot = await this.prisma.snapshot.findFirst({
+        where: {
+          snapshotDate: {
+            lte: snapshot.snapshotDate,
+          },
+          balances: {
+            some: {
+              account: {
+                provider: Provider.NEXO,
+              },
+            },
+          },
+        },
+        orderBy: {
+          snapshotDate: 'desc',
+        },
+        include: {
+          balances: {
+            where: {
+              account: {
+                provider: Provider.NEXO,
+              },
+            },
+          },
+        },
+      });
+
+      // Create map of previous balances
+      const previousBalancesMap = new Map<string, number>();
+      if (previousSnapshot) {
+        for (const balance of previousSnapshot.balances) {
+          const amount =
+            typeof balance.free === 'string'
+              ? parseFloat(balance.free)
+              : Number(balance.free);
+          previousBalancesMap.set(balance.asset, amount);
+        }
+      }
+
+      // Apply incremental updates
+      for (const update of balances) {
+        const asset = update.asset.toUpperCase();
+        if (update.amount === 0) {
+          // Amount 0 means delete the asset
+          previousBalancesMap.delete(asset);
+        } else {
+          // Update or add the asset
+          previousBalancesMap.set(asset, update.amount);
+        }
+      }
+
+      // Convert map to AssetBalance format
+      const assetBalances = Array.from(previousBalancesMap.entries()).map(
+        ([asset, amount]) => ({
+          asset,
+          free: amount.toFixed(8),
+          locked: '0',
+        }),
+      );
+
+      // Save merged balances
       await this.saveBalances(snapshot.id, account.id, assetBalances);
 
       // Record successful sync
@@ -539,7 +595,7 @@ export class SnapshotsService {
       });
 
       this.logger.log(
-        `Nexo manual balances added successfully for snapshot ${snapshot.id}`,
+        `Nexo manual balances updated successfully (incremental) for snapshot ${snapshot.id}`,
       );
 
       return {
