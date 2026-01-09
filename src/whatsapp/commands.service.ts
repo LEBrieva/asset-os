@@ -36,6 +36,9 @@ export class CommandsService {
       case '/nexo':
         return this.handleNexo(args);
 
+      case '/sync':
+        return this.handleSync(args);
+
       case '/help':
         return this.handleHelp();
 
@@ -249,6 +252,47 @@ export class CommandsService {
   }
 
   /**
+   * /sync <SECRET> - Ejecutar sincronización manual (admin only)
+   */
+  private async handleSync(args: string[]): Promise<string> {
+    // Validar secreto
+    const secret = args[0];
+    const expectedSecret = process.env.ADMIN_SYNC_SECRET;
+
+    if (!secret || secret !== expectedSecret) {
+      return '❌ Acceso denegado. Secreto inválido.';
+    }
+
+    try {
+      this.logger.log('Manual sync requested via WhatsApp command');
+
+      // Ejecutar sync
+      const result = await this.snapshotsService.runSync();
+
+      // Formatear respuesta
+      const today = new Date().toLocaleDateString('es-AR');
+      let message = `✅ *Sincronización completada (${today})*\n\n`;
+      message += `Estado: ${result.status}\n`;
+      message += `Snapshot ID: ${result.snapshotId}\n\n`;
+
+      if (result.status === 'COMPLETE') {
+        message += `✅ Bitget, SimpleFX y Nexo sincronizados correctamente.\n`;
+      } else if (result.status === 'PARTIAL') {
+        message += `⚠️ Sincronización parcial. Algunos providers fallaron.\n`;
+      } else {
+        message += `❌ Sincronización falló. Revisa los logs.\n`;
+      }
+
+      message += `\nUsa /total para ver tu portfolio actualizado.`;
+
+      return message;
+    } catch (error) {
+      this.logger.error('Manual sync failed:', error);
+      return `❌ Error al ejecutar sync: ${error.message}\n\nRevisa los logs del servidor.`;
+    }
+  }
+
+  /**
    * /help - Show available commands
    */
   private handleHelp(): Promise<string> {
@@ -290,6 +334,11 @@ export class CommandsService {
 
     help += `/help\n`;
     help += `  → Muestra este mensaje\n\n`;
+
+    help += `🔧 *Admin:*\n`;
+    help += `/sync <SECRETO>\n`;
+    help += `  → Ejecuta sincronización manual de Bitget/SimpleFX/Nexo\n`;
+    help += `  ⚠️ Requiere secreto de admin\n\n`;
 
     help += `💬 *Lenguaje Natural:*\n`;
     help += `También puedes hacer preguntas en lenguaje natural!\n`;
